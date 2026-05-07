@@ -45,6 +45,9 @@ jobs:
             "tools/nvscope-probe" \
             | xargs -0 sed -i 's/\r$//'
 
+      - name: Restore script executable bits
+        run: chmod +x tools/nvscope tools/nvscope-probe tools/*.sh tests/*.sh
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -97,6 +100,9 @@ jobs:
             "tools/nvscope" \
             "tools/nvscope-probe" \
             | xargs -0 sed -i 's/\r$//'
+
+      - name: Restore script executable bits
+        run: chmod +x tools/nvscope tools/nvscope-probe tools/*.sh tests/*.sh
 
       - name: Install build dependencies
         run: |

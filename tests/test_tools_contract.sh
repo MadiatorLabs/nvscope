@@ -4,17 +4,22 @@ set -eu
 root_dir="$(CDPATH= cd "$(dirname "$0")/.." && pwd)"
 cd "$root_dir"
 
+fail() {
+    echo "test_tools_contract: $*" >&2
+    exit 1
+}
+
 require_file() {
     path="$1"
-    test -f "$path"
-    test -x "$path"
-    sh -n "$path"
+    test -f "$path" || fail "missing file: $path"
+    test -x "$path" || fail "not executable: $path"
+    sh -n "$path" || fail "invalid shell syntax: $path"
 }
 
 require_grep() {
     pattern="$1"
     path="$2"
-    grep -F -- "$pattern" "$path" >/dev/null
+    grep -F -- "$pattern" "$path" >/dev/null || fail "missing pattern in $path: $pattern"
 }
 
 require_file tools/run-nvenc-test.sh
