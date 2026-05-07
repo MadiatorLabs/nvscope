@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test (${{ matrix.cc }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cc:
+          - gcc
+          - clang
+    env:
+      CC: ${{ matrix.cc }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            clang \
+            file
+
+      - name: Build
+        run: |
+          make clean
+          make
+
+      - name: Test
+        run: make test
+
+      - name: Verify staged install
+        run: |
+          install_root="$RUNNER_TEMP/nvscope-root"
+          rm -rf "$install_root"
+          make PREFIX=/usr DESTDIR="$install_root" install
+
+          test -x "$install_root/usr/bin/nvscope"
+          test -x "$install_root/usr/bin/nvscope-probe"
+          test -x "$install_root/usr/lib/nvscope/libnvscope.so"
+          test -f "$install_root/usr/share/doc/nvscope/README.md"
+          test -f "$install_root/usr/share/doc/nvscope/LICENSE"
+          file "$install_root/usr/lib/nvscope/libnvscope.so" | grep -E 'shared object|dynamically linked'
+
+  packages:
+    name: Build Linux packages
+    runs-on: ubuntu-24.04
+    needs:
+      - test
+    env:
+      NFPM_VERSION: v2.46.1
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            file
+
+      - name: Set up Go for nFPM
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+
+      - name: Install nFPM
+        run: |
+          echo "$HOME/go/bin" >> "$GITHUB_PATH"
+          go install "github.com/goreleaser/nfpm/v2/cmd/nfpm@${NFPM_VERSION}"
+
+      - name: Build library
+        run: |
+          make clean
+          make
+
+      - name: Build packages
+        run: |
+          mkdir -p dist
+          for packager in deb rpm apk; do
+            nfpm package \
+              --config packaging/nfpm.yaml \
+              --packager "$packager" \
+              --target dist/
+          done
+          ls -lh dist
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvscope-packages
+          path: dist/*
+          if-no-files-found: error

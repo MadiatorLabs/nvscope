@@ -1,0 +1,37 @@
+#!/bin/sh
+set -u
+
+script_dir="$(CDPATH= cd "$(dirname "$0")" && pwd)"
+nvenc_output="${NVENC_TEST_OUTPUT:-/tmp/nvenc_h264_test.mp4}"
+nvdec_input="${NVDEC_TEST_INPUT:-/tmp/cpu_h264_420.mp4}"
+
+section() {
+    printf '\n== %s ==\n' "$1"
+}
+
+run() {
+    title="$1"
+    shift
+    section "$title"
+    "$@" 2>&1 || printf 'command failed: %s\n' "$*"
+}
+
+run_sh() {
+    title="$1"
+    command="$2"
+    section "$title"
+    sh -c "$command" 2>&1 || printf 'command failed: %s\n' "$command"
+}
+
+run "nvidia-smi full" nvidia-smi
+run "nvidia-smi query" nvidia-smi --query-gpu=index,uuid,name,driver_version,pci.bus_id --format=csv
+run_sh "/proc/driver/nvidia/version" "cat /proc/driver/nvidia/version"
+run_sh "/dev/nvidia nodes" "ls -l /dev/nvidia*"
+run_sh "/dev/nvidia-caps listing" "ls -l /dev/nvidia-caps"
+run_sh "/dev/nvidia-caps find" "find /dev/nvidia-caps -maxdepth 2 -ls"
+run_sh "nvidia proc gpu information" "grep -H 'Bus Location\|GPU UUID\|Device Minor' /proc/driver/nvidia/gpus/*/information"
+run_sh "NVIDIA, CUDA, and nvscope environment" "env | grep -E '^(NVIDIA|CUDA|NVSCOPE|NV_VIDEO_FIX)_' | sort"
+run_sh "nvidia video libraries" "ldconfig -p | grep -E 'libnvidia-encode|libnvcuvid'"
+run_sh "ffmpeg nvenc encoders" "ffmpeg -hide_banner -encoders | grep -i h264_nvenc"
+run "NVENC smoke test" "$script_dir/run-nvenc-test.sh" "$nvenc_output"
+run "NVDEC source generation and smoke test" "$script_dir/run-nvdec-test.sh" "$nvdec_input"

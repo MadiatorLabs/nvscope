@@ -1,0 +1,104 @@
+#!/bin/sh
+set -eu
+
+usage() {
+    cat <<'EOF'
+usage: nvscope [options] -- command [args...]
+
+Run a command with nvscope's NVIDIA container topology shim.
+
+Options:
+  --trace              enable trace logging
+  --no-ioctl           disable experimental RM ioctl topology filtering
+  --no-proc            disable NVIDIA procfs topology filtering
+  --gpu-uuid UUID      restrict filtering to one already-assigned GPU UUID
+  --lib PATH           use a specific libnvscope.so
+  -h, --help           show this help
+
+By default, nvscope enables NVSCOPE_IOCTL=1 for this command only.
+EOF
+}
+
+script_dir="$(CDPATH= cd "$(dirname "$0")" && pwd)"
+source_lib="$script_dir/../libnvscope.so"
+installed_lib="/usr/lib/nvscope/libnvscope.so"
+lib="${NVSCOPE_LIB:-}"
+
+if [ -z "$lib" ]; then
+    if [ -f "$source_lib" ]; then
+        lib="$source_lib"
+    else
+        lib="$installed_lib"
+    fi
+fi
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --trace)
+            export NVSCOPE_TRACE=1
+            shift
+            ;;
+        --no-ioctl)
+            export NVSCOPE_IOCTL=0
+            shift
+            ;;
+        --no-proc)
+            export NVSCOPE_PROC=0
+            shift
+            ;;
+        --gpu-uuid)
+            if [ "$#" -lt 2 ]; then
+                echo "nvscope: --gpu-uuid requires a value" >&2
+                exit 2
+            fi
+            export NVSCOPE_GPU_UUID="$2"
+            shift 2
+            ;;
+        --lib)
+            if [ "$#" -lt 2 ]; then
+                echo "nvscope: --lib requires a path" >&2
+                exit 2
+            fi
+            lib="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            echo "nvscope: unknown option: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+if [ "$#" -eq 0 ]; then
+    usage >&2
+    exit 2
+fi
+
+if [ ! -f "$lib" ]; then
+    echo "nvscope: libnvscope.so not found at $lib" >&2
+    exit 1
+fi
+
+if [ -z "${NVSCOPE_IOCTL+x}" ] && [ -z "${NV_VIDEO_FIX_IOCTL+x}" ]; then
+    export NVSCOPE_IOCTL=1
+fi
+
+if [ -n "${LD_PRELOAD:-}" ]; then
+    export LD_PRELOAD="$lib:$LD_PRELOAD"
+else
+    export LD_PRELOAD="$lib"
+fi
+
+exec "$@"
