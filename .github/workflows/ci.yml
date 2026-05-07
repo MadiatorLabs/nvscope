@@ -32,6 +32,19 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Normalize line endings
+        run: |
+          git ls-files -z -- \
+            "*.c" \
+            "*.h" \
+            "*.sh" \
+            "*.yml" \
+            "*.yaml" \
+            "Makefile" \
+            "tools/nvscope" \
+            "tools/nvscope-probe" \
+            | xargs -0 sed -i 's/\r$//'
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -71,6 +84,19 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Normalize line endings
+        run: |
+          git ls-files -z -- \
+            "*.c" \
+            "*.h" \
+            "*.sh" \
+            "*.yml" \
+            "*.yaml" \
+            "Makefile" \
+            "tools/nvscope" \
+            "tools/nvscope-probe" \
+            | xargs -0 sed -i 's/\r$//'
 
       - name: Install build dependencies
         run: |
