@@ -1,0 +1,31 @@
+name: nvscope
+arch: amd64
+platform: linux
+version: 0.1.0
+section: utils
+priority: optional
+maintainer: nvscope contributors
+description: Runpod-focused NVIDIA container topology shim for NVENC/NVDEC workloads.
+homepage: https://github.com/nvscope/nvscope
+license: Apache-2.0
+contents:
+  - src: ./libnvscope.so
+    dst: /usr/lib/nvscope/libnvscope.so
+    file_info:
+      mode: 0755
+  - src: ./tools/nvscope
+    dst: /usr/bin/nvscope
+    file_info:
+      mode: 0755
+  - src: ./tools/nvscope-probe
+    dst: /usr/bin/nvscope-probe
+    file_info:
+      mode: 0755
+  - src: ./README.md
+    dst: /usr/share/doc/nvscope/README.md
+    file_info:
+      mode: 0644
+  - src: ./LICENSE
+    dst: /usr/share/doc/nvscope/LICENSE
+    file_info:
+      mode: 0644
